@@ -1,3 +1,4 @@
+#include "BufferStructs.h"
 #include "Game.h"
 #include "Vertex.h"
 
@@ -66,6 +67,17 @@ void Game::Init()
 	// geometric primitives (points, lines or triangles) we want to draw.  
 	// Essentially: "What kind of shape should the GPU draw with our data?"
 	context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	// Create constant buffer for VertexShaderExternalData
+	unsigned int size = sizeof(VertexShaderExternalData);
+	size = (size + 15) / 16 * 16;
+	D3D11_BUFFER_DESC cbDesc	= {}; //sets to all zeros
+	cbDesc.BindFlags			= D3D11_BIND_CONSTANT_BUFFER;
+	cbDesc.ByteWidth			= size;
+	cbDesc.CPUAccessFlags		= D3D11_CPU_ACCESS_WRITE;
+	cbDesc.Usage				= D3D11_USAGE_DYNAMIC;
+
+	device->CreateBuffer(&cbDesc, 0, constantBufferVS.GetAddressOf());
 }
 
 // --------------------------------------------------------
@@ -245,6 +257,22 @@ void Game::Draw(float deltaTime, float totalTime)
 {
 	// Background color (Cornflower Blue in this case) for clearing
 	const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
+
+	VertexShaderExternalData vsData;
+	vsData.colorTint = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
+	vsData.offset = XMFLOAT3(0.25f, 0.0f, 0.0f);
+
+	D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
+	context->Map(constantBufferVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer); // Map + unmap lock + unlock the buffer on the GPU while were writing to it
+
+	memcpy(mappedBuffer.pData, &vsData, sizeof(vsData));
+
+	context->Unmap(constantBufferVS.Get(), 0);
+
+	context->VSSetConstantBuffers(
+		0,	// Which slot (register) to bind the buffer to?
+		1,	// How many are we activating?  Can do multiple at once
+		constantBufferVS.GetAddressOf());	// Array of buffers (or the address of one)
 
 	// Clear the render target and depth buffer (erases what's on the screen)
 	//  - Do this ONCE PER FRAME
