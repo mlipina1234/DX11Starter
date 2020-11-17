@@ -1,6 +1,6 @@
 #include "BufferStructs.h"
 #include "Game.h"
-#include "Vertex.h"
+#include <cmath>
 
 // Needed for a helper function to read compiled shader files from the hard drive
 #pragma comment(lib, "d3dcompiler.lib")
@@ -49,6 +49,26 @@ Game::~Game()
 	{
 		delete m;
 	}
+
+	for (Entity* e : entities)
+	{
+		delete e;
+	}
+	
+	delete material_cobblestone;
+	delete material_wood;
+	delete material_bronze;
+	delete material_scratched;
+	delete material_paint;
+	delete material_floor;
+
+	delete mainCamera;
+
+	delete pixelShader;
+	delete vertexShader;
+	delete pixelShaderNormalMap;
+	delete vertexShaderNormalMap;
+	delete skybox;
 }
 
 // --------------------------------------------------------
@@ -61,7 +81,267 @@ void Game::Init()
 	// geometry to draw and some simple camera matrices.
 	//  - You'll be expanding and/or replacing these later
 	LoadShaders();
+
+	D3D11_SAMPLER_DESC samplerDesc = D3D11_SAMPLER_DESC();
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	auto thing = device->CreateSamplerState(&samplerDesc, &samplerState);
+
+#pragma region Textures
+
+	// Wood
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/wood_albedo.png").c_str(),
+		nullptr,
+		&woodAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/wood_normals.png").c_str(),
+		nullptr,
+		&woodNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/wood_metal.png").c_str(),
+		nullptr,
+		&woodMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/wood_roughness.png").c_str(),
+		nullptr,
+		&woodRoughnessSRV
+	);
+
+	// Bronze
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/bronze_albedo.png").c_str(),
+		nullptr,
+		&bronzeAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/bronze_normals.png").c_str(),
+		nullptr,
+		&bronzeNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/bronze_metal.png").c_str(),
+		nullptr,
+		&bronzeMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/bronze_roughness.png").c_str(),
+		nullptr,
+		&bronzeRoughnessSRV
+	);
+
+	// Cobblestone
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/cobblestone_albedo.png").c_str(),
+		nullptr,
+		&cobblestoneAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/cobblestone_normals.png").c_str(),
+		nullptr,
+		&cobblestoneNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/cobblestone_metal.png").c_str(),
+		nullptr,
+		&cobblestoneMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/cobblestone_roughness.png").c_str(),
+		nullptr,
+		&cobblestoneRoughnessSRV
+	);
+
+	// Scratched
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/scratched_albedo.png").c_str(),
+		nullptr,
+		&scratchedAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/scratched_normals.png").c_str(),
+		nullptr,
+		&scratchedNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/scratched_metal.png").c_str(),
+		nullptr,
+		&scratchedMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/scratched_roughness.png").c_str(),
+		nullptr,
+		&scratchedRoughnessSRV
+	);
+
+	// Paint
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/paint_albedo.png").c_str(),
+		nullptr,
+		&paintAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/paint_normals.png").c_str(),
+		nullptr,
+		&paintNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/paint_metal.png").c_str(),
+		nullptr,
+		&paintMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/paint_roughness.png").c_str(),
+		nullptr,
+		&paintRoughnessSRV
+	);
+
+	// Floor
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/floor_albedo.png").c_str(),
+		nullptr,
+		&floorAlbedoSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/floor_normals.png").c_str(),
+		nullptr,
+		&floorNormalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/floor_metal.png").c_str(),
+		nullptr,
+		&floorMetalSRV
+	);
+
+	CreateWICTextureFromFile(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/floor_roughness.png").c_str(),
+		nullptr,
+		&floorRoughnessSRV
+	);
+
+#pragma endregion
+
+
+	material_wood = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 0.5f, pixelShaderNormalMap, vertexShaderNormalMap, woodAlbedoSRV.Get(), samplerState.Get(), woodNormalSRV.Get(), woodRoughnessSRV.Get(), woodMetalSRV.Get());
+	material_bronze = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, pixelShaderNormalMap, vertexShaderNormalMap, bronzeAlbedoSRV.Get(), samplerState.Get(), bronzeNormalSRV.Get(), bronzeRoughnessSRV.Get(), bronzeMetalSRV.Get());
+	material_cobblestone = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 1.0f, pixelShaderNormalMap, vertexShaderNormalMap, cobblestoneAlbedoSRV.Get(), samplerState.Get(), cobblestoneNormalSRV.Get(), cobblestoneRoughnessSRV.Get(), cobblestoneMetalSRV.Get());
+	material_scratched = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 0.5f, pixelShaderNormalMap, vertexShaderNormalMap, scratchedAlbedoSRV.Get(), samplerState.Get(), scratchedNormalSRV.Get(), scratchedRoughnessSRV.Get(), scratchedMetalSRV.Get());
+	material_paint = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 0.5f, pixelShaderNormalMap, vertexShaderNormalMap, paintAlbedoSRV.Get(), samplerState.Get(), paintNormalSRV.Get(), paintRoughnessSRV.Get(), paintMetalSRV.Get());
+	material_floor = new Material(DirectX::XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f), 0.5f, pixelShaderNormalMap, vertexShaderNormalMap, floorAlbedoSRV.Get(), samplerState.Get(), floorNormalSRV.Get(), floorRoughnessSRV.Get(), floorMetalSRV.Get());
+
+	directionalLight1 = DirectionalLight();
+	directionalLight1.ambientColor = XMFLOAT3(0.01f, 0.01f, 0.02f);
+	directionalLight1.diffuseColor = XMFLOAT3(0.3f, 0.3f, 0.4f);
+	//directionalLight1.diffuseColor = XMFLOAT3(0.0f, 0.0f, 0.0f);
+	directionalLight1.direction = XMFLOAT3(1.0f, 1.0f, -1.0f);
+
+	directionalLight2 = DirectionalLight();
+	directionalLight2.ambientColor =	XMFLOAT3(0.01f, 0.01f, 0.01f);
+	directionalLight2.diffuseColor =	XMFLOAT3(0.01f, 0.01f, 0.01f);
+	directionalLight2.direction =		XMFLOAT3(0.0f, 1.0f, 0.0f);
+
+	directionalLight3 = DirectionalLight();
+	directionalLight3.ambientColor =	XMFLOAT3(0.01f, 0.01f, 0.01f);
+	directionalLight3.diffuseColor =	XMFLOAT3(0.01f, 0.02f, 0.01f);
+	directionalLight3.direction =		XMFLOAT3(0.0f, 1.0f, -1.0f);
+
+	pointLight1 = PointLight();
+	pointLight1.color = XMFLOAT3(1, 1, 1);
+	pointLight1.position = XMFLOAT3(-5, 100, 0);
+
 	CreateBasicGeometry();
+	mainCamera = new Camera(
+		0,
+		0,
+		-2.0f,
+		0,
+		0,
+		0,
+		80.0f,
+		1.0f,
+		2.0f,
+		(float)this->width / this->height,
+		0.1f,
+		50.0f
+	);
 	
 	// Tell the input assembler stage of the pipeline what kind of
 	// geometric primitives (points, lines or triangles) we want to draw.  
@@ -77,7 +357,19 @@ void Game::Init()
 	cbDesc.CPUAccessFlags		= D3D11_CPU_ACCESS_WRITE;
 	cbDesc.Usage				= D3D11_USAGE_DYNAMIC;
 
-	device->CreateBuffer(&cbDesc, 0, constantBufferVS.GetAddressOf());
+
+	//Setup skybox
+	
+	//meshes.push_back(new Mesh(GetFullPathTo("../../assets/meshes/cube.obj").c_str(), device));
+	skybox = new Sky(
+		new Mesh(GetFullPathTo("../../assets/meshes/cube.obj").c_str(), device),
+		samplerState.Get(),
+		GetFullPathTo_Wide(L"../../assets/textures/SpaceCubeMap.dds").c_str(),
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"Sky_VS.cso").c_str(),
+		GetFullPathTo_Wide(L"Sky_PS.cso").c_str()
+	);
 }
 
 // --------------------------------------------------------
@@ -90,65 +382,26 @@ void Game::Init()
 // --------------------------------------------------------
 void Game::LoadShaders()
 {
-	// Blob for reading raw data
-	// - This is a simplified way of handling raw data
-	ID3DBlob* shaderBlob;
-
-	// Read our compiled vertex shader code into a blob
-	// - Essentially just "open the file and plop its contents here"
-	D3DReadFileToBlob(
-		GetFullPathTo_Wide(L"VertexShader.cso").c_str(), // Using a custom helper for file paths
-		&shaderBlob);
-
-	// Create a vertex shader from the information we
-	// have read into the blob above
-	// - A blob can give a pointer to its contents, and knows its own size
-	device->CreateVertexShader(
-		shaderBlob->GetBufferPointer(), // Get a pointer to the blob's contents
-		shaderBlob->GetBufferSize(),	// How big is that data?
-		0,								// No classes in this shader
-		vertexShader.GetAddressOf());	// The address of the ID3D11VertexShader*
-
-
-	// Create an input layout that describes the vertex format
-	// used by the vertex shader we're using
-	//  - This is used by the pipeline to know how to interpret the raw data
-	//     sitting inside a vertex buffer
-	//  - Doing this NOW because it requires a vertex shader's byte code to verify against!
-	//  - Luckily, we already have that loaded (the blob above)
-	D3D11_INPUT_ELEMENT_DESC inputElements[2] = {};
-
-	// Set up the first element - a position, which is 3 float values
-	inputElements[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;				// Most formats are described as color channels; really it just means "Three 32-bit floats"
-	inputElements[0].SemanticName = "POSITION";							// This is "POSITION" - needs to match the semantics in our vertex shader input!
-	inputElements[0].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;	// How far into the vertex is this?  Assume it's after the previous element
-
-	// Set up the second element - a color, which is 4 more float values
-	inputElements[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;			// 4x 32-bit floats
-	inputElements[1].SemanticName = "COLOR";							// Match our vertex shader input!
-	inputElements[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;	// After the previous element
-
-	// Create the input layout, verifying our description against actual shader code
-	device->CreateInputLayout(
-		inputElements,					// An array of descriptions
-		2,								// How many elements in that array
-		shaderBlob->GetBufferPointer(),	// Pointer to the code of a shader that uses this layout
-		shaderBlob->GetBufferSize(),	// Size of the shader code that uses this layout
-		inputLayout.GetAddressOf());	// Address of the resulting ID3D11InputLayout*
-
-
-
-	// Read and create the pixel shader
-	//  - Reusing the same blob here, since we're done with the vert shader code
-	D3DReadFileToBlob(
-		GetFullPathTo_Wide(L"PixelShader.cso").c_str(), // Using a custom helper for file paths
-		&shaderBlob);
-
-	device->CreatePixelShader(
-		shaderBlob->GetBufferPointer(),
-		shaderBlob->GetBufferSize(),
-		0,
-		pixelShader.GetAddressOf());
+	vertexShader = new SimpleVertexShader(
+		device.Get(), 
+		context.Get(), 
+		GetFullPathTo_Wide(L"VertexShader.cso").c_str()
+	); 
+	pixelShader = new SimplePixelShader(
+		device.Get(), 
+		context.Get(), 
+		GetFullPathTo_Wide(L"PixelShader.cso").c_str()
+	);
+	vertexShaderNormalMap = new SimpleVertexShader(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"NormalMap_VS.cso").c_str()
+	);
+	pixelShaderNormalMap = new SimplePixelShader(
+		device.Get(),
+		context.Get(),
+		GetFullPathTo_Wide(L"NormalMap_PS.cso").c_str()
+	);
 }
 
 
@@ -160,10 +413,8 @@ void Game::CreateBasicGeometry()
 {
 	// Create some temporary variables to represent colors
 	// - Not necessary, just makes things more readable
-	XMFLOAT4 red = XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f);
-	XMFLOAT4 green = XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f);
-	XMFLOAT4 blue = XMFLOAT4(0.0f, 0.0f, 1.0f, 1.0f);
-
+	XMFLOAT3 Normal = { 0, 0, -1 };
+	XMFLOAT2 UV = { 0, 0 };
 	// Set up the vertices of the triangle we would like to draw
 	// - We're going to copy this array, exactly as it exists in memory
 	//    over to a DirectX-controlled data structure (the vertex buffer)
@@ -178,9 +429,9 @@ void Game::CreateBasicGeometry()
 	//    since we're describing the triangle in terms of the window itself
 	Vertex vertices[] =
 	{
-		{ XMFLOAT3(+0.0f, +0.5f, +0.0f), red },
-		{ XMFLOAT3(+0.5f, -0.5f, +0.0f), blue },
-		{ XMFLOAT3(-0.5f, -0.5f, +0.0f), green },
+		{ XMFLOAT3(+0.0f, +0.5f, +0.0f), Normal, UV },
+		{ XMFLOAT3(+0.5f, -0.5f, +0.0f), Normal, UV },
+		{ XMFLOAT3(-0.5f, -0.5f, +0.0f), Normal, UV },
 	};
 
 	// Set up the indices, which tell us which vertices to use and in which order
@@ -190,45 +441,67 @@ void Game::CreateBasicGeometry()
 	// - But just to see how it's done...
 	unsigned int indices[] = { 0, 1, 2 };
 
-	meshes.push_back( new Mesh(vertices, 3, indices, 3, device) );
-
+	//meshes.push_back( new Mesh(vertices, 3, indices, 3, device) );
+	//entities.push_back(new Entity(meshes.back()));
 
 	// square mesh
 	Vertex squareVertices[] =
 	{
-		{ XMFLOAT3(+0.7f, +0.7f, +0.0f), blue },
-		{ XMFLOAT3(+0.7f, +0.4f, +0.0f), red },
-		{ XMFLOAT3(+0.4f, +0.4f, +0.0f), red },
-		{ XMFLOAT3(+0.4f, +0.7f, +0.0f), red },
+		{ XMFLOAT3(+0.7f, +0.7f, +0.0f), Normal, UV },
+		{ XMFLOAT3(+0.7f, +0.4f, +0.0f), Normal, UV },
+		{ XMFLOAT3(+0.4f, +0.4f, +0.0f), Normal, UV },
+		{ XMFLOAT3(+0.4f, +0.7f, +0.0f), Normal, UV },
 	};
 	unsigned int squareIndices[] = { 0, 1, 2, 0, 2, 3 };
 
-	meshes.push_back(new Mesh(squareVertices, 4, squareIndices, 6, device));
+	meshes.push_back(new Mesh(GetFullPathTo("../../assets/meshes/helix.obj").c_str(), device));
+	entities.push_back(new Entity(meshes.back(), material_cobblestone));
+	entities.push_back(new Entity(meshes.back(), material_wood));
+	entities.push_back(new Entity(meshes.back(), material_bronze));
+	entities.push_back(new Entity(meshes.back(), material_scratched));
+	entities.push_back(new Entity(meshes.back(), material_paint));
+	entities.push_back(new Entity(meshes.back(), material_floor));
 
-	// hexagon mesh
-	Vertex hexagonVertices[] =
+	for (int i = 0; i < entities.size(); i++)
 	{
-		{ XMFLOAT3(-0.7f, +0.7f, +0.0f), blue },
-		{ XMFLOAT3(-0.8f, +0.7f, +0.0f), green },
-		{ XMFLOAT3(-0.75f, +0.8f, +0.0f), green },
-		{ XMFLOAT3(-0.65f, +0.8f, +0.0f), green },
-		{ XMFLOAT3(-0.6f, +0.7f, +0.0f), green },
-		{ XMFLOAT3(-0.65f, +0.6f, +0.0f), green },
-		{ XMFLOAT3(-0.75f, +0.6f, +0.0f), green },		
-	};
+		Transform* t = entities[i]->GetTransform();
+		t->SetPosition(i * 2.0f + -1.0f, -1.0f, 1.0f);
+		t->SetRotation(0.0f, 0.0f, 0.0f);
+		t->SetScale(0.7f, 0.7f, 0.7f);
+	}
 
-	unsigned int hexagonIndices[] = 
-	{ 
-		0, 1, 2, 
-		0, 2, 3, 
-		0, 3, 4, 
-		0, 4, 5, 
-		0, 5, 6, 
-		0, 6, 1, 
-	};
-	meshes.push_back(new Mesh(hexagonVertices, 7, hexagonIndices, 18, device));
+	meshes.push_back(new Mesh(GetFullPathTo("../../assets/meshes/sphere.obj").c_str(), device));
+	entities.push_back(new Entity(meshes.back(), material_cobblestone));
+	entities.push_back(new Entity(meshes.back(), material_wood));
+	entities.push_back(new Entity(meshes.back(), material_bronze));
+	entities.push_back(new Entity(meshes.back(), material_scratched));
+	entities.push_back(new Entity(meshes.back(), material_paint));
+	entities.push_back(new Entity(meshes.back(), material_floor));
+
+	for (int i = (int)entities.size() / 2; i < entities.size(); i++)
+	{
+		Transform* t = entities[i]->GetTransform();
+		t->SetPosition(i * 2.0f + -14, 1.0f, 1.0f);
+		t->SetRotation(0.0f, 0.0f, 0.0f);
+		t->SetScale(1, 1, 1);
+	}
+
+	meshes.push_back(new Mesh(GetFullPathTo("../../assets/meshes/cylinder.obj").c_str(), device));
+	entities.push_back(new Entity(meshes.back(), material_cobblestone));
+	entities.push_back(new Entity(meshes.back(), material_wood));
+	entities.push_back(new Entity(meshes.back(), material_bronze));
+	entities.push_back(new Entity(meshes.back(), material_scratched));
+	entities.push_back(new Entity(meshes.back(), material_paint));
+	entities.push_back(new Entity(meshes.back(), material_floor));
+
+	for (int i = (int)entities.size() * 2 / 3; i < entities.size(); i++)
+	{
+		Transform* t = entities[i]->GetTransform();
+		t->SetPosition(i * 2.0f + -28, 3.0f, 1.0f);
+		t->SetRotation(0.0f, 0.0f, 0.0f);
+		t->SetScale(1, 1, 1);
+	}
 }
-
 
 // --------------------------------------------------------
 // Handle resizing DirectX "stuff" to match the new window size.
@@ -238,6 +511,11 @@ void Game::OnResize()
 {
 	// Handle base-level DX resize stuff
 	DXCore::OnResize();
+
+	if (mainCamera != nullptr)
+	{
+		mainCamera->UpdateProjectionMatrix((float)this->width / this->height);
+	}
 }
 
 // --------------------------------------------------------
@@ -245,9 +523,17 @@ void Game::OnResize()
 // --------------------------------------------------------
 void Game::Update(float deltaTime, float totalTime)
 {
+	mainCamera->Update(deltaTime, this->hWnd);
+	for (Entity* e : entities)
+	{
+		e->GetTransform()->MoveAbsolute(sin(totalTime ) * 0.00001f, cos(totalTime) * 0.00001f, 0);
+		e->GetTransform()->Rotate(0.0f, 0.0f, deltaTime);
+	}
 	// Quit if the escape key is pressed
 	if (GetAsyncKeyState(VK_ESCAPE))
 		Quit();
+
+
 }
 
 // --------------------------------------------------------
@@ -258,21 +544,47 @@ void Game::Draw(float deltaTime, float totalTime)
 	// Background color (Cornflower Blue in this case) for clearing
 	const float color[4] = { 0.4f, 0.6f, 0.75f, 0.0f };
 
-	VertexShaderExternalData vsData;
-	vsData.colorTint = XMFLOAT4(0.0f, 1.0f, 1.0f, 1.0f);
-	vsData.offset = XMFLOAT3(0.25f, 0.0f, 0.0f);
-
-	D3D11_MAPPED_SUBRESOURCE mappedBuffer = {};
-	context->Map(constantBufferVS.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedBuffer); // Map + unmap lock + unlock the buffer on the GPU while were writing to it
-
-	memcpy(mappedBuffer.pData, &vsData, sizeof(vsData));
-
-	context->Unmap(constantBufferVS.Get(), 0);
-
-	context->VSSetConstantBuffers(
-		0,	// Which slot (register) to bind the buffer to?
-		1,	// How many are we activating?  Can do multiple at once
-		constantBufferVS.GetAddressOf());	// Array of buffers (or the address of one)
+	pixelShader->SetData(
+		"directionalLight1",
+		&directionalLight1,
+		sizeof(DirectionalLight)
+	);
+	pixelShader->SetData(
+		"directionalLight2",
+		&directionalLight2,
+		sizeof(DirectionalLight)
+	);
+	pixelShader->SetData(
+		"directionalLight3",
+		&directionalLight3,
+		sizeof(DirectionalLight)
+	);
+	pixelShader->SetData(
+		"pointLight1",
+		&pointLight1,
+		sizeof(PointLight)
+	);
+	pixelShaderNormalMap->SetData(
+		"directionalLight1",
+		&directionalLight1,
+		sizeof(DirectionalLight)
+	);
+	pixelShaderNormalMap->SetData(
+		"directionalLight2",
+		&directionalLight2,
+		sizeof(DirectionalLight)
+	);
+	pixelShaderNormalMap->SetData(
+		"directionalLight3",
+		&directionalLight3,
+		sizeof(DirectionalLight)
+	);
+	pixelShaderNormalMap->SetData(
+		"pointLight1",
+		&pointLight1,
+		sizeof(PointLight)
+	);
+	pixelShader->CopyAllBufferData();
 
 	// Clear the render target and depth buffer (erases what's on the screen)
 	//  - Do this ONCE PER FRAME
@@ -285,49 +597,16 @@ void Game::Draw(float deltaTime, float totalTime)
 		0);
 
 
-	// Set the vertex and pixel shaders to use for the next Draw() command
-	//  - These don't technically need to be set every frame
-	//  - Once you start applying different shaders to different objects,
-	//    you'll need to swap the current shaders before each draw
-	context->VSSetShader(vertexShader.Get(), 0, 0);
-	context->PSSetShader(pixelShader.Get(), 0, 0);
+	//=====================================| DRAW MESHES
 
-
-	// Ensure the pipeline knows how to interpret the data (numbers)
-	// from the vertex buffer.  
-	// - If all of your 3D models use the exact same vertex layout,
-	//    this could simply be done once in Init()
-	// - However, this isn't always the case (but might be for this course)
-	context->IASetInputLayout(inputLayout.Get());
-
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
-	for (Mesh* mesh : meshes)
+	for (Entity* entity : entities)
 	{
-		// Set buffers in the input assembler
-		//  - Do this ONCE PER OBJECT you're drawing, since each object might
-		//    have different geometry.
-		//  - for this demo, this step *could* simply be done once during Init(),
-		//    but I'm doing it here because it's often done multiple times per frame
-		//    in a larger application/game
-		context->IASetVertexBuffers(0, 1, mesh->GetVertexBuffer().GetAddressOf(), &stride, &offset);
-		context->IASetIndexBuffer(mesh->GetIndexBuffer().Get(), DXGI_FORMAT_R32_UINT, 0);
-
-
-		// Finally do the actual drawing
-		//  - Do this ONCE PER OBJECT you intend to draw
-		//  - This will use all of the currently set DirectX "stuff" (shaders, buffers, etc)
-		//  - DrawIndexed() uses the currently set INDEX BUFFER to look up corresponding
-		//     vertices in the currently set VERTEX BUFFER
-		context->DrawIndexed(
-			mesh->GetIndexCount(),     // The number of indices to use (we could draw a subset if we wanted)
-			0,     // Offset to the first index we want to use
-			0);    // Offset to add to each index when looking up vertices
+		entity->Draw(context, mainCamera);
 	}
+
+	// Draw the skybox last
+	skybox->Draw(context, mainCamera);
 	
-
-
-
 	// Present the back buffer to the user
 	//  - Puts the final frame we're drawing into the window so the user can see it
 	//  - Do this exactly ONCE PER FRAME (always at the very end of the frame)

@@ -1,19 +1,21 @@
+#include "ShaderIncludes.hlsli"
 
-// Struct representing the data we expect to receive from earlier pipeline stages
-// - Should match the output of our corresponding vertex shader
-// - The name of the struct itself is unimportant
-// - The variable names don't have to match other shaders (just the semantics)
-// - Each variable must have a semantic, which defines its usage
-struct VertexToPixel
+cbuffer LightData : register(b0)
 {
-	// Data type
-	//  |
-	//  |   Name          Semantic
-	//  |    |                |
-	//  v    v                v
-	float4 position		: SV_POSITION;
-	float4 color		: COLOR;
-};
+	DirectionalLight directionalLight1;
+	DirectionalLight directionalLight2;
+	DirectionalLight directionalLight3;
+	PointLight pointLight1;
+	float specularValue;
+	float3 cameraPosition;
+}
+
+Texture2D Albedo	: register(t0);// "t" registers
+Texture2D RoughnessMap	: register(t1);
+Texture2D MetalnessMap	: register(t2);
+
+
+SamplerState samplerOptions : register(s0);// "s" registers
 
 // --------------------------------------------------------
 // The entry point (main method) for our pixel shader
@@ -26,9 +28,23 @@ struct VertexToPixel
 // --------------------------------------------------------
 float4 main(VertexToPixel input) : SV_TARGET
 {
-	// Just return the input color
-	// - This color (like most values passing through the rasterizer) is 
-	//   interpolated for each pixel between the corresponding vertices 
-	//   of the triangle we're rendering
-	return input.color;
+	input.normal = normalize(input.normal);
+	
+	float3 surfaceColor = pow( Albedo.Sample(samplerOptions, input.uv).rgb, 2.2f );
+	//float3 surfaceColor = diffuseTexture.Sample(samplerOptions, input.uv).rgb;
+	//return float4(lightingAmount, lightingAmount, lightingAmount, 1);
+	
+	// PBR things
+	float roughness = RoughnessMap.Sample(samplerOptions, input.uv).r;
+	roughness = 0.2f;
+	float metalness = MetalnessMap.Sample(samplerOptions, input.uv).r;
+	float3 specularColor = lerp(F0_NON_METAL.rrr, surfaceColor.rgb, metalness);
+
+	float3 totalColor = (
+		ComputeDirectionalLightColor(input.worldPos, input.normal, directionalLight1, cameraPosition, roughness, metalness, specularColor, surfaceColor)
+		+ ComputeDirectionalLightColor(input.worldPos, input.normal, directionalLight2, cameraPosition, roughness, metalness, specularColor, surfaceColor)
+		+ ComputeDirectionalLightColor(input.worldPos, input.normal, directionalLight3, cameraPosition, roughness, metalness, specularColor, surfaceColor)
+		+ ComputePointLightColor(input.worldPos, input.normal, pointLight1, cameraPosition, roughness, metalness, specularColor, surfaceColor)
+		) * surfaceColor * input.color;
+	return float4(pow(totalColor, 1.0f / 2.2f), 1);
 }
